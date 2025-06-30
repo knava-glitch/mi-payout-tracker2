@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Faction Payout Tracker - Mild Inconvenience</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body style="font-family: sans-serif; background: #111; color: white; text-align: center; padding: 20px;">
+  <h2>Faction Payouts: Mild Inconvenience</h2>
+  <p id="totalSpent">Loading data...</p>
+  <canvas id="payoutChart" width="600" height="300"></canvas>
+
+  <script>
+    const apiKey = "FHvlsFatujnF6a1p";
+    const endpoint = `https://api.torn.com/faction/?selections=log&key=${apiKey}`;
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        const logs = Object.values(data.log || {});
+
+        const payouts = {};
+
+        logs.forEach(entry => {
+          // Include all payout-related types
+          if (["money_sent", "money_given", "faction_spending", "vault_withdraw", "vault_transfer"].includes(entry.type)) {
+            const match = entry.log.match(/\$([\d,]+)/);
+            if (match) {
+              const amount = parseInt(match[1].replace(/,/g, ''));
+              const date = new Date(entry.timestamp * 1000).toISOString().split('T')[0];
+              payouts[date] = (payouts[date] || 0) + amount;
+            }
+          }
+        });
+
+        const sortedDates = Object.keys(payouts).sort();
+        const amounts = sortedDates.map(date => payouts[date]);
+        const total = amounts.reduce((a, b) => a + b, 0);
+        document.getElementById("totalSpent").innerText = `💸 Total Tracked Spending: $${total.toLocaleString()}`;
+
+        new Chart(document.getElementById('payoutChart'), {
+          type: 'line',
+          data: {
+            labels: sortedDates,
+            datasets: [{
+              label: 'Tracked Spending ($)',
+              data: amounts,
+              borderColor: 'rgba(255, 99, 132, 0.8)',
+              backgroundColor: 'rgba(255, 99, 132, 0.2)',
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                ticks: {
+                  callback: val => '$' + val.toLocaleString()
+                },
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      } catch (err) {
+        document.getElementById("totalSpent").innerText = "⚠️ Error loading data. Check API key or rate limit.";
+        console.error("Fetch error:", err);
+      }
+    }
+
+    fetchLogs();
+  </script>
+</body>
+</html>
