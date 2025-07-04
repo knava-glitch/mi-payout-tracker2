@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Torn Faction Chain Stats</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body style="background:#111;color:#fff;font-family:sans-serif;padding:20px;">
+  <h1>Faction Chain + Payout Stats</h1>
+
+  <canvas id="attackChart" width="600" height="300"></canvas>
+  <br>
+  <canvas id="payoutChart" width="600" height="300"></canvas>
+
+  <script>
+    const apiKey = 'FHvlsFatujnF6a1p';
+
+    // Helper function to fetch Torn data
+    async function fetchTornData(endpoint) {
+      const res = await fetch(`https://api.torn.com/faction/?selections=${endpoint}&key=${apiKey}`);
+      return res.json();
+    }
+
+    async function loadData() {
+      const attacksData = await fetchTornData('attacks');
+      const bankData = await fetchTornData('bank');
+
+      // Process Attacks (last chain only - latest attack set)
+      let attackCounts = {};
+      for (let attackId in attacksData.attacks) {
+        let attack = attacksData.attacks[attackId];
+        let name = attack.attacker_name;
+        if (!attackCounts[name]) attackCounts[name] = 0;
+        attackCounts[name]++;
+      }
+
+      // Process Bank Withdrawals ("give to user")
+      let payouts = {};
+      for (let tx of bankData.bank) {
+        if (tx.transaction === 'give to user') {
+          const name = tx.user_name;
+          if (!payouts[name]) payouts[name] = 0;
+          payouts[name] += tx.amount;
+        }
+      }
+
+      drawChart('attackChart', 'Chain Attacks', attackCounts);
+      drawChart('payoutChart', 'Payouts (millions)', payouts, 1_000_000);
+    }
+
+    function drawChart(canvasId, label, dataObj, divider = 1) {
+      const labels = Object.keys(dataObj);
+      const values = Object.values(dataObj).map(val => val / divider);
+
+      new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data: values,
+            backgroundColor: '#36A2EB'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: "#fff" } }
+          },
+          scales: {
+            x: { ticks: { color: '#fff' } },
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#fff' }
+            }
+          }
+        }
+      });
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
